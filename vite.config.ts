@@ -1,37 +1,33 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
-  plugins: [
-    react(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      '@': path.resolve(import.meta.dirname, 'client', 'src'),
+      '@shared': path.resolve(import.meta.dirname, 'shared'),
+      '@assets': path.resolve(import.meta.dirname, 'attached_assets'),
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  root: path.resolve(import.meta.dirname, 'client'),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    sourcemap: true,
+    minify: false, // Disable minification for easier debugging
   },
   server: {
+    watch: {
+      usePolling: true, // Ensure file watching in non-standard environments
+    },
+    hmr: {
+      overlay: true, // Enable error overlays
+    },
     fs: {
       strict: true,
-      deny: ["**/.*"],
+      deny: ['**/.*'], // Prevent access to hidden files
     },
   },
 });

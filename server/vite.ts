@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import chokidar from "chokidar";
 
 const viteLogger = createLogger();
 
@@ -64,6 +65,14 @@ export async function setupVite(app: Express, server: Server) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
     }
+  });
+
+  const watcher = chokidar.watch(path.resolve(import.meta.dirname, "..", "client"));
+  watcher.on("change", () => {
+    vite.ws.send({
+      type: "full-reload",
+      path: "*",
+    });
   });
 }
 
