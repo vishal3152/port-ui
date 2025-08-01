@@ -1,9 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import ErrorOverlay from 'vite-plugin-error-overlay'; 
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    ErrorOverlay(), 
+  ],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'client', 'src'),
@@ -15,19 +19,16 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
-    sourcemap: true,
-    minify: false, // Disable minification for easier debugging
+    sourcemap: true,        // ✅For full stack trace with original source
+    minify: false,          //  Easier to debug without minification
   },
   server: {
-    watch: {
-      usePolling: true, // Ensure file watching in non-standard environments
-    },
     hmr: {
-      overlay: true, // Enable error overlays
+      overlay: true,        //  Enable built-in overlay
     },
     fs: {
       strict: true,
-      deny: ['**/.*'], // Prevent access to hidden files
+      deny: ['**/.*'],      //  Prevent access to hidden files
     },
   },
 });
