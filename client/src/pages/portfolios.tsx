@@ -43,14 +43,14 @@ export default function Portfolios() {
   const { data: portfolios = [], isLoading } = useQuery({
     queryKey: ["/api/portfolios"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/portfolios");
+      const response = await apiRequest("GET", "/api/portfolios", undefined);
       const basicPortfolios = await response.json();
       
       // Fetch metrics for each portfolio
       const portfoliosWithMetrics = await Promise.all(
         basicPortfolios.map(async (portfolio: any) => {
           try {
-            const metricsResponse = await apiRequest("GET", `/api/portfolios/${portfolio.id}`);
+            const metricsResponse = await apiRequest("GET", `/api/portfolios/${portfolio.id}`, undefined);
             return await metricsResponse.json();
           } catch (error) {
             return {
@@ -72,7 +72,7 @@ export default function Portfolios() {
   // Delete portfolio mutation
   const deletePortfolioMutation = useMutation({
     mutationFn: async (portfolioId: string) => {
-      const response = await apiRequest("DELETE", `/api/portfolios/${portfolioId}`);
+      const response = await apiRequest("DELETE", `/api/portfolios/${portfolioId}`, undefined);
       return response.json();
     },
     onSuccess: () => {

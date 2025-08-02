@@ -11,6 +11,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  shouldRedirect: boolean = true,
 ): Promise<Response> {
   const res = await fetch(url, {
     method,
@@ -18,6 +19,11 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // If we get a 401, redirect to login page
+  if (res.status === 401 && shouldRedirect) {
+    window.location.href = "/login";
+  }
 
   await throwIfResNotOk(res);
   return res;

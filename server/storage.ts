@@ -1,5 +1,5 @@
-import { 
-  type Portfolio, 
+import {
+  type Portfolio,
   type InsertPortfolio,
   type Holding,
   type InsertHolding,
@@ -13,6 +13,24 @@ import {
   type HoldingWithMetrics
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+
+// User type for authentication
+export interface User {
+  id: string;
+  googleId: string;
+  email: string;
+  name: string;
+  picture?: string;
+  accessToken?: string;
+  createdAt: Date;
+}
+
+export interface InsertUser {
+  googleId: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
 
 export interface IStorage {
   // Portfolios
@@ -46,6 +64,12 @@ export interface IStorage {
   getMarketData(symbol: string): Promise<MarketData | undefined>;
   updateMarketData(data: InsertMarketData): Promise<MarketData>;
   getMarketDataBatch(symbols: string[]): Promise<MarketData[]>;
+
+  // Users
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUserToken(userId: string, accessToken: string): Promise<User>;
 }
 
 export class MemStorage implements IStorage {
@@ -54,6 +78,8 @@ export class MemStorage implements IStorage {
   private transactions: Map<string, Transaction>;
   private currencies: Map<string, Currency>;
   private marketData: Map<string, MarketData>;
+  private users: Map<string, User>;
+  private googleIdToUserId: Map<string, string>;
 
   constructor() {
     this.portfolios = new Map();
@@ -61,9 +87,43 @@ export class MemStorage implements IStorage {
     this.transactions = new Map();
     this.currencies = new Map();
     this.marketData = new Map();
+    this.users = new Map();
+    this.googleIdToUserId = new Map();
 
     // Initialize with sample data
     this.initializeSampleData();
+  }
+
+  // User management methods
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const userId = this.googleIdToUserId.get(googleId);
+    if (!userId) return undefined;
+    return this.users.get(userId);
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const user: User = {
+      ...insertUser,
+      id: randomUUID(),
+      accessToken: undefined,
+      createdAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    this.googleIdToUserId.set(user.googleId, user.id);
+    return user;
+  }
+
+  async updateUserToken(userId: string, accessToken: string): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { ...user, accessToken };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 
   private initializeSampleData() {
@@ -202,9 +262,14 @@ export class MemStorage implements IStorage {
 
   async createPortfolio(insertPortfolio: InsertPortfolio): Promise<Portfolio> {
     const portfolio: Portfolio = {
-      ...insertPortfolio,
       id: randomUUID(),
+      name: insertPortfolio.name,
       description: insertPortfolio.description || null,
+      externalIdentifier: insertPortfolio.externalIdentifier || null,
+      taxResidency: insertPortfolio.taxResidency || "US",
+      financialYearEnd: insertPortfolio.financialYearEnd || "31st Mar",
+      performanceCalculationMethod: insertPortfolio.performanceCalculationMethod || "Simple",
+      baseCurrency: insertPortfolio.baseCurrency || "USD",
       createdAt: new Date(),
     };
     this.portfolios.set(portfolio.id, portfolio);

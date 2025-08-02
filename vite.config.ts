@@ -1,12 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import ErrorOverlay from 'vite-plugin-error-overlay'; 
 
 export default defineConfig({
   plugins: [
     react(),
-    ErrorOverlay(), 
   ],
   resolve: {
     alias: {

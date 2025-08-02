@@ -1,12 +1,13 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPortfolioSchema, insertTransactionSchema, insertHoldingSchema } from "@shared/schema";
 import { z } from "zod";
+import { requireAuth } from "./middleware";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Portfolio routes
-  app.get("/api/portfolios", async (req, res) => {
+  app.get("/api/portfolios", requireAuth, async (req: Request, res) => {
     try {
       const portfolios = await storage.getPortfolios();
       res.json(portfolios);
@@ -15,7 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/portfolios/:id", async (req, res) => {
+  app.get("/api/portfolios/:id", requireAuth, async (req: Request, res) => {
     try {
       const portfolio = await storage.getPortfolioWithMetrics(req.params.id);
       if (!portfolio) {
@@ -27,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/portfolios", async (req, res) => {
+  app.post("/api/portfolios", requireAuth, async (req: Request, res) => {
     try {
       const data = insertPortfolioSchema.parse(req.body);
       const portfolio = await storage.createPortfolio(data);
@@ -40,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/portfolios/:id", async (req, res) => {
+  app.delete("/api/portfolios/:id", requireAuth, async (req: Request, res) => {
     try {
       const deleted = await storage.deletePortfolio(req.params.id);
       if (!deleted) {
@@ -53,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Holdings routes
-  app.get("/api/portfolios/:portfolioId/holdings", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/holdings", requireAuth, async (req: Request, res) => {
     try {
       const holdings = await storage.getHoldingsWithMetrics(req.params.portfolioId);
       res.json(holdings);
@@ -62,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/portfolios/:portfolioId/holdings", async (req, res) => {
+  app.post("/api/portfolios/:portfolioId/holdings", requireAuth, async (req: Request, res) => {
     try {
       const data = insertHoldingSchema.parse({
         ...req.body,
@@ -79,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Transaction routes
-  app.get("/api/portfolios/:portfolioId/transactions", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/transactions", requireAuth, async (req: Request, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const transactions = limit 
@@ -91,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/portfolios/:portfolioId/transactions", async (req, res) => {
+  app.post("/api/portfolios/:portfolioId/transactions", requireAuth, async (req: Request, res) => {
     try {
       const data = insertTransactionSchema.parse({
         ...req.body,
@@ -109,7 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Market data routes
-  app.get("/api/market-data/:symbol", async (req, res) => {
+  app.get("/api/market-data/:symbol", requireAuth, async (req: Request, res) => {
     try {
       const { symbol } = req.params;
       const apiKey = process.env.ALPHA_VANTAGE_API_KEY || process.env.VITE_ALPHA_VANTAGE_API_KEY || "demo";
@@ -156,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Currency conversion routes
-  app.get("/api/currency/:from/:to", async (req, res) => {
+  app.get("/api/currency/:from/:to", requireAuth, async (req: Request, res) => {
     try {
       const { from, to } = req.params;
       const apiKey = process.env.ALPHA_VANTAGE_API_KEY || process.env.VITE_ALPHA_VANTAGE_API_KEY || "demo";
@@ -198,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update stock prices for a portfolio
-  app.post("/api/portfolios/:portfolioId/update-prices", async (req, res) => {
+  app.post("/api/portfolios/:portfolioId/update-prices", requireAuth, async (req: Request, res) => {
     try {
       const holdings = await storage.getHoldings(req.params.portfolioId);
       const symbols = Array.from(new Set(holdings.map(h => h.symbol)));
@@ -213,11 +214,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (marketData) {
             const holdingsForSymbol = holdings.filter(h => h.symbol === symbol);
             for (const holding of holdingsForSymbol) {
-              const { id, currentPrice, lastUpdated, ...holdingUpdate } = holding;
-              await storage.updateHolding(holding.id, {
-                ...holdingUpdate,
+              // Create a partial update object that includes currentPrice
+              const holdingUpdate: Partial<any> = {
                 currentPrice: marketData.price,
-              });
+              };
+              await storage.updateHolding(holding.id, holdingUpdate);
             }
           }
         } catch (error) {

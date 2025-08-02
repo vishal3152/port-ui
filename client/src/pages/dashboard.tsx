@@ -31,7 +31,7 @@ export default function Dashboard() {
   const { data: portfolios = [] } = useQuery({
     queryKey: ["/api/portfolios"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/portfolios");
+      const response = await apiRequest("GET", "/api/portfolios", undefined);
       return response.json();
     },
   });
@@ -51,7 +51,7 @@ export default function Dashboard() {
   const { data: portfolio, isLoading: portfolioLoading } = useQuery({
     queryKey: ["/api/portfolios", selectedPortfolioId],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}`);
+      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}`, undefined);
       return response.json() as Promise<PortfolioWithMetrics>;
     },
     enabled: !!selectedPortfolioId,
@@ -61,7 +61,7 @@ export default function Dashboard() {
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
     queryKey: ["/api/portfolios", selectedPortfolioId, "holdings"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}/holdings`);
+      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}/holdings`, undefined);
       return response.json() as Promise<HoldingWithMetrics[]>;
     },
     enabled: !!selectedPortfolioId,
@@ -71,7 +71,7 @@ export default function Dashboard() {
   const { data: recentTransactions = [] } = useQuery({
     queryKey: ["/api/portfolios", selectedPortfolioId, "transactions"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}/transactions?limit=3`);
+      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}/transactions?limit=3`, undefined);
       return response.json() as Promise<Transaction[]>;
     },
     enabled: !!selectedPortfolioId,
