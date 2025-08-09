@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Filter, Search, Eye } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import type { HoldingWithMetrics } from "@shared/schema";
 
 interface HoldingsTableProps {
@@ -15,6 +16,7 @@ interface HoldingsTableProps {
 export function HoldingsTable({ holdings, isLoading }: HoldingsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   const filteredHoldings = holdings.filter(holding =>
     holding.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -104,7 +106,11 @@ export function HoldingsTable({ holdings, isLoading }: HoldingsTableProps) {
                   <tr
                     key={holding.id}
                     className="hover:bg-muted/50 cursor-pointer"
-                    onClick={() => navigate(`/holdings/${holding.id}`, { state: { holding } })}
+                    onClick={() => {
+                      // Cache the holding data in React Query for instant access on details page
+                      queryClient.setQueryData(["/api/holdings", holding.id], holding);
+                      navigate(`/holdings/${holding.id}`);
+                    }}
                   >
                     <td className="py-3 px-2">
                       <div className="flex items-center space-x-2">
@@ -143,7 +149,9 @@ export function HoldingsTable({ holdings, isLoading }: HoldingsTableProps) {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/holdings/${holding.id}`, { state: { holding } });
+                          // Cache the holding data in React Query for instant access on details page
+                          queryClient.setQueryData(["/api/holdings", holding.id], holding);
+                          navigate(`/holdings/${holding.id}`);
                         }}
                       >
                         <Eye className="h-4 w-4" />

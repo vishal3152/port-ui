@@ -25,11 +25,12 @@ import {
 import { serverApi } from "@/lib/server-api";
 import { useToast } from "@/hooks/use-toast";
 import { EditHoldingModal } from "@/components/portfolio/edit-holding-modal";
-import type { HoldingWithMetrics, Transaction } from "@shared/schema";
+import type { HoldingWithMetrics } from "@shared/schema";
 
 export default function HoldingDetails() {
   const { id } = useParams();
-  const [, navigate, { state }] = useLocation();
+  const [location, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState("summary");
   const [dateRange, setDateRange] = useState("since_first_purchase");
   const [graphType, setGraphType] = useState("price");
   const [includeClosedPositions, setIncludeClosedPositions] = useState(false);
@@ -37,30 +38,37 @@ export default function HoldingDetails() {
   const [showEditHoldingModal, setShowEditHoldingModal] = useState(false);
   const { toast } = useToast();
 
-  // Use cached holding data from navigation state or fallback to API call
-  const cachedHolding = state?.holding as HoldingWithMetrics | undefined;
-  const { data: holding, isLoading: holdingLoading } = useQuery({
+  // Get holding data from React Query cache (set by HoldingsTable)
+  const { data: holding, isLoading: holdingLoading } = useQuery<HoldingWithMetrics>({
     queryKey: ["/api/holdings", id],
     queryFn: async () => {
-      // Only fetch if we don't have cached data
-      if (cachedHolding) return cachedHolding;
-      // Fallback API call if no cached data available - this requires portfolioId
+      // This should not be called if the data is already cached
       // In a real implementation, you'd have a specific endpoint for individual holdings
-      throw new Error("Unable to load holding without cached data or portfolio ID");
+      throw new Error("Unable to load holding - data should be cached from dashboard");
     },
     enabled: !!id,
-    initialData: cachedHolding,
+    staleTime: 5 * 60 * 1000, // Consider cached data fresh for 5 minutes
   });
 
-  // Fetch transactions for this holding
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
-    queryKey: ["/api/holdings", id, "transactions"],
+  // Fetch trades for this holding - always fetch when we have holding data
+  const { data: trades = [], isLoading: tradesLoading, error: tradesError } = useQuery({
+    queryKey: ["/api/trades", holding?.portfolioId, holding?.instrumentKey],
     queryFn: async () => {
-      // In a real implementation, you'd have an endpoint to fetch transactions for a specific holding
-      const allTransactions = await serverApi.getRecentTransactions(holding?.portfolioId || "", 100);
-      return allTransactions.filter((t: Transaction) => t.symbol === holding?.symbol);
+      if (!holding?.portfolioId || !holding?.instrumentKey) {
+        console.log('Missing holding data:', { portfolioId: holding?.portfolioId, instrumentKey: holding?.instrumentKey });
+        return [];
+      }
+      console.log('Fetching trades for:', { portfolioId: holding.portfolioId, instrumentKey: holding.instrumentKey });
+      try {
+        const tradesResponse = await serverApi.getTrades(holding.portfolioId, holding.instrumentKey);
+        console.log('Trades response:', tradesResponse);
+        return tradesResponse.data || [];
+      } catch (error) {
+        console.error('Error fetching trades:', error);
+        return [];
+      }
     },
-    enabled: !!holding,
+    enabled: !!holding?.portfolioId && !!holding?.instrumentKey,
   });
 
   const formatCurrency = (amount: number, currency = "USD") => {
@@ -116,12 +124,12 @@ export default function HoldingDetails() {
               <Button onClick={() => navigate("/")}>Go back to dashboard</Button>
             </div>
           </main>
+          <EditHoldingModal
+            open={showEditHoldingModal}
+            onOpenChange={setShowEditHoldingModal}
+            holding={holding || null}
+          />
         </div>
-        <EditHoldingModal
-          open={showEditHoldingModal}
-          onOpenChange={setShowEditHoldingModal}
-          holding={holding}
-        />
       </div>
     );
   }
@@ -188,7 +196,7 @@ export default function HoldingDetails() {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="summary" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList>
               <TabsTrigger value="summary">Summary</TabsTrigger>
               <TabsTrigger value="trades">Trades & income</TabsTrigger>
@@ -419,6 +427,69 @@ export default function HoldingDetails() {
                 </CardContent>
               </Card>
 
+              {/* Recent Trades */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Recent Trades</CardTitle>
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab("trades")}>
+                      View All Trades
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {tradesLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  ) : tradesError ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">Error loading trades</p>
+                      <p className="text-sm text-destructive mt-2">Error: {tradesError.message}</p>
+                    </div>
+                  ) : trades.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No trades found</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">DATE</th>
+                            <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">TYPE</th>
+                            <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">QUANTITY</th>
+                            <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">PRICE</th>
+                            <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">VALUE</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {trades.slice(0, 5).map((trade) => (
+                            <tr key={trade.txId} className="hover:bg-muted/50">
+                              <td className="py-3 px-2 text-sm">{formatDate(trade.trdDt)}</td>
+                              <td className="py-3 px-2 text-sm">
+                                <Badge variant={trade.trdTypEnum === 'BUY' ? 'default' : 'destructive'}>
+                                  {trade.trdTypEnum}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right">
+                                {trade.qty.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right">
+                                {formatCurrency(trade.tradePrice, trade.ccy)}
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right">
+                                {formatCurrency(trade.qty * trade.tradePrice, trade.ccy)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Benchmark Performance */}
               <Card className="bg-warning/10">
                 <CardHeader>
@@ -449,13 +520,24 @@ export default function HoldingDetails() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {transactionsLoading ? (
+                  {tradesLoading ? (
                     <div className="flex items-center justify-center h-32">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     </div>
-                  ) : transactions.length === 0 ? (
+                  ) : tradesError ? (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground">No transactions found</p>
+                      <p className="text-muted-foreground">Error loading trades</p>
+                      <p className="text-sm text-destructive mt-2">Error: {tradesError.message}</p>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Debug: portfolioId={holding?.portfolioId}, instrumentKey={holding?.instrumentKey}
+                      </div>
+                    </div>
+                  ) : trades.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No trades found</p>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Debug: portfolioId={holding?.portfolioId}, instrumentKey={holding?.instrumentKey}
+                      </div>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -474,27 +556,31 @@ export default function HoldingDetails() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {transactions.map((transaction) => (
-                            <tr key={transaction.id} className="hover:bg-muted/50">
-                              <td className="py-3 px-2 text-sm">{formatDate(transaction.date)}</td>
-                              <td className="py-3 px-2 text-sm capitalize">{transaction.type}</td>
-                              <td className="py-3 px-2 text-sm text-right">
-                                {parseFloat(transaction.quantity).toLocaleString()}
+                          {trades.map((trade) => (
+                            <tr key={trade.txId} className="hover:bg-muted/50">
+                              <td className="py-3 px-2 text-sm">{formatDate(trade.trdDt)}</td>
+                              <td className="py-3 px-2 text-sm">
+                                <Badge variant={trade.trdTypEnum === 'BUY' ? 'default' : 'destructive'}>
+                                  {trade.trdTypEnum}
+                                </Badge>
                               </td>
                               <td className="py-3 px-2 text-sm text-right">
-                                {formatCurrency(parseFloat(transaction.price), transaction.currency)}
+                                {trade.qty.toLocaleString()}
                               </td>
                               <td className="py-3 px-2 text-sm text-right">
-                                {formatCurrency(parseFloat(transaction.fees || "0"), transaction.currency)}
+                                {formatCurrency(trade.tradePrice, trade.ccy)}
                               </td>
                               <td className="py-3 px-2 text-sm text-right">
-                                87.50460493<br />
+                                {formatCurrency(trade.fee, trade.feeCcy)}
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right">
+                                {trade.fx || 'N/A'}<br />
                                 <span className="text-xs text-muted-foreground">
-                                  {transaction.currency}/INR
+                                  {trade.fxBaseCcy || trade.ccy}/INR
                                 </span>
                               </td>
                               <td className="py-3 px-2 text-sm text-right">
-                                {formatCurrency(parseFloat(transaction.totalAmount), transaction.currency)}
+                                {formatCurrency(trade.qty * trade.tradePrice, trade.ccy)}
                               </td>
                               <td className="py-3 px-2 text-sm text-center">
                                 <Badge variant="secondary">Confirmed</Badge>

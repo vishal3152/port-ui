@@ -115,6 +115,7 @@ export type PortfolioWithMetrics = Portfolio & {
 };
 
 export type HoldingWithMetrics = Holding & {
+  instrumentKey?: string; // Server-provided instrument key for API calls
   currentValue: number;
   totalGain: number;
   totalGainPercent: number;

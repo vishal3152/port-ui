@@ -99,6 +99,8 @@ interface ServerTradeEntity {
   ccy: string;
   fee: number;
   feeCcy: string;
+  fx?: string;
+  fxBaseCcy?: string;
   typ: "STK" | "MF" | "FIXED" | "OTH";
   trdTyp: string;
   trdDt: string;
@@ -284,6 +286,13 @@ export class ServerApiService {
     return response.data.map(portfolio => this.transformPortfolio(portfolio));
   }
 
+    /**
+   * Get trades for a portfolio
+   */
+  async getTrades(portfolioId: string, instrumentKey: string): Promise<ServerApiResponse<ServerTradeEntity[]>> {
+    return this.makeRequest<ServerApiResponse<ServerTradeEntity[]>>(`/api/trades?portfolioId=${portfolioId}&ik=${instrumentKey}`);
+  }
+
   /**
    * Get all portfolios with calculated metrics from holdings
    */
@@ -387,6 +396,7 @@ export class ServerApiService {
       // Base Holding fields (matching client schema)
       id: holding.hid,
       portfolioId: holding.pid,
+      instrumentKey: holding.ik, // Add instrument key for API calls
       symbol: holding.symbol,
       companyName: holding.cmpNm || holding.symbol, // Fallback to symbol if company name is null
       exchange: holding.exchange,
@@ -419,12 +429,6 @@ export class ServerApiService {
     }));
   }
 
-  /**
-   * Get trades for a portfolio
-   */
-  async getTrades(portfolioId: string, instrumentKey: string): Promise<ServerPageTradeEntity> {
-    return this.makeRequest<ServerPageTradeEntity>(`/api/trades?portfolioId=${portfolioId}&ik=${instrumentKey}`);
-  }
 
   /**
    * Get recent transactions in client-compatible format
@@ -446,7 +450,7 @@ export class ServerApiService {
       for (const holding of holdings.slice(0, 5)) { // Limit to first 5 holdings to avoid too many API calls
         try {
           const tradesResponse = await this.getTrades(portfolioId, holding.ik);
-          const trades = tradesResponse.content.map(trade => ({
+          const trades = tradesResponse.data.map(trade => ({
             id: trade.txId,
             portfolioId: trade.pid,
             symbol: trade.symbol,
