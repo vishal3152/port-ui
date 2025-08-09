@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { apiRequest } from "@/lib/queryClient";
+import { serverApi, type ClientPortfolioCreateRequest } from "@/lib/server-api";
 import { useToast } from "@/hooks/use-toast";
 import { insertPortfolioSchema } from "@shared/schema";
 import { z } from "zod";
@@ -73,8 +73,17 @@ export function CreatePortfolioModal({ open, onOpenChange }: CreatePortfolioModa
 
   const createPortfolioMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await apiRequest("POST", "/api/portfolios", data);
-      return response.json();
+      // Transform form data to client API format
+      const clientData: ClientPortfolioCreateRequest = {
+        name: data.name,
+        description: data.description || undefined,
+        baseCurrency: data.baseCurrency || "USD",
+        taxResidency: data.taxResidency || "US",
+        financialYearEnd: data.financialYearEnd || "31st Mar",
+        performanceCalculationMethod: data.performanceCalculationMethod,
+        externalIdentifier: data.externalIdentifier
+      };
+      return await serverApi.createPortfolio(clientData);
     },
     onSuccess: () => {
       toast({

@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/api";
+import { serverApi } from "@/lib/server-api";
 import { useToast } from "@/hooks/use-toast";
 import type { PortfolioWithMetrics } from "@shared/schema";
 import { Link } from "wouter";
@@ -39,42 +40,15 @@ export default function Portfolios() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all portfolios with metrics
+  // Fetch all portfolios from Java server with calculated metrics
   const { data: portfolios = [], isLoading } = useQuery({
     queryKey: ["/api/portfolios"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/portfolios", undefined);
-      const basicPortfolios = await response.json();
-      
-      // Fetch metrics for each portfolio
-      const portfoliosWithMetrics = await Promise.all(
-        basicPortfolios.map(async (portfolio: any) => {
-          try {
-            const metricsResponse = await apiRequest("GET", `/api/portfolios/${portfolio.id}`, undefined);
-            return await metricsResponse.json();
-          } catch (error) {
-            return {
-              ...portfolio,
-              totalValue: 0,
-              totalGain: 0,
-              totalGainPercent: 0,
-              dividendYield: 0,
-              holdingsCount: 0,
-            };
-          }
-        })
-      );
-      
-      return portfoliosWithMetrics;
-    },
+    queryFn: () => serverApi.getPortfoliosWithMetrics(),
   });
 
   // Delete portfolio mutation
   const deletePortfolioMutation = useMutation({
-    mutationFn: async (portfolioId: string) => {
-      const response = await apiRequest("DELETE", `/api/portfolios/${portfolioId}`, undefined);
-      return response.json();
-    },
+    mutationFn: (portfolioId: string) => serverApi.deletePortfolio(portfolioId),
     onSuccess: () => {
       toast({
         title: "Success",

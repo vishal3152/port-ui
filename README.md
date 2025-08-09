@@ -66,17 +66,17 @@ This application uses Google OAuth 2.0 for authentication. Users can sign in wit
 
 All API endpoints are protected and require authentication:
 
-- `GET /api/portfolios` - Get all portfolios
-- `GET /api/portfolios/:id` - Get a specific portfolio
-- `POST /api/portfolios` - Create a new portfolio
-- `DELETE /api/portfolios/:id` - Delete a portfolio
-- `GET /api/portfolios/:portfolioId/holdings` - Get holdings for a portfolio
-- `POST /api/portfolios/:portfolioId/holdings` - Create a new holding
-- `GET /api/portfolios/:portfolioId/transactions` - Get transactions for a portfolio
-- `POST /api/portfolios/:portfolioId/transactions` - Create a new transaction
+- `GET ` - Get all portfolios
+- `GET /:id` - Get a specific portfolio
+- `POST ` - Create a new portfolio
+- `DELETE /:id` - Delete a portfolio
+- `GET /:portfolioId/holdings` - Get holdings for a portfolio
+- `POST /:portfolioId/holdings` - Create a new holding
+- `GET /:portfolioId/transactions` - Get transactions for a portfolio
+- `POST /:portfolioId/transactions` - Create a new transaction
 - `GET /api/market-data/:symbol` - Get market data for a symbol
 - `GET /api/currency/:from/:to` - Get currency conversion rate
-- `POST /api/portfolios/:portfolioId/update-prices` - Update stock prices for a portfolio
+- `POST /:portfolioId/update-prices` - Update stock prices for a portfolio
 
 ## Authentication Endpoints
 

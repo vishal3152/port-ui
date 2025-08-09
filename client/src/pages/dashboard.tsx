@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, DollarSign, Coins, Globe, Plus, RefreshCw } from "lucide-react";
 import { apiRequest, updatePortfolioPrices } from "@/lib/api";
+import { serverApi } from "@/lib/server-api";
 import { useToast } from "@/hooks/use-toast";
 import type { PortfolioWithMetrics, HoldingWithMetrics, Transaction } from "@shared/schema";
 
@@ -27,13 +28,10 @@ export default function Dashboard() {
   const urlParams = new URLSearchParams(window.location.search);
   const portfolioFromUrl = urlParams.get('portfolio');
 
-  // Fetch portfolios
+  // Fetch portfolios from server with metrics
   const { data: portfolios = [] } = useQuery({
     queryKey: ["/api/portfolios"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/portfolios", undefined);
-      return response.json();
-    },
+    queryFn: () => serverApi.getPortfoliosWithMetrics(),
   });
 
   // Set portfolio from URL or default to first portfolio
@@ -47,33 +45,21 @@ export default function Dashboard() {
     }
   }, [portfolios, portfolioFromUrl, selectedPortfolioId]);
 
-  // Fetch selected portfolio with metrics
-  const { data: portfolio, isLoading: portfolioLoading } = useQuery({
-    queryKey: ["/api/portfolios", selectedPortfolioId],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}`, undefined);
-      return response.json() as Promise<PortfolioWithMetrics>;
-    },
-    enabled: !!selectedPortfolioId,
-  });
+  // Get selected portfolio from the list (server doesn't have individual portfolio metrics endpoint)
+  const portfolio = portfolios.find((p: PortfolioWithMetrics) => p.id === selectedPortfolioId);
+  const portfolioLoading = false;
 
-  // Fetch holdings
+  // Fetch holdings from server
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
     queryKey: ["/api/portfolios", selectedPortfolioId, "holdings"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}/holdings`, undefined);
-      return response.json() as Promise<HoldingWithMetrics[]>;
-    },
+    queryFn: () => serverApi.getHoldingsWithMetrics(selectedPortfolioId),
     enabled: !!selectedPortfolioId,
   });
 
-  // Fetch recent transactions
+  // Fetch recent transactions from server
   const { data: recentTransactions = [] } = useQuery({
     queryKey: ["/api/portfolios", selectedPortfolioId, "transactions"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/portfolios/${selectedPortfolioId}/transactions?limit=3`, undefined);
-      return response.json() as Promise<Transaction[]>;
-    },
+    queryFn: () => serverApi.getRecentTransactions(selectedPortfolioId, 3),
     enabled: !!selectedPortfolioId,
   });
 
