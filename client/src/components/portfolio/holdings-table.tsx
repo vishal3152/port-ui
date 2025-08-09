@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Search } from "lucide-react";
+import { Filter, Search, Eye } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import type { HoldingWithMetrics } from "@shared/schema";
 
 interface HoldingsTableProps {
@@ -13,6 +14,7 @@ interface HoldingsTableProps {
 
 export function HoldingsTable({ holdings, isLoading }: HoldingsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [, navigate] = useLocation();
 
   const filteredHoldings = holdings.filter(holding =>
     holding.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,11 +96,16 @@ export function HoldingsTable({ holdings, isLoading }: HoldingsTableProps) {
                   <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">Price</th>
                   <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">Value</th>
                   <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">Gain/Loss</th>
+                  <th className="text-center py-3 px-2 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredHoldings.map((holding) => (
-                  <tr key={holding.id} className="hover:bg-muted/50">
+                  <tr
+                    key={holding.id}
+                    className="hover:bg-muted/50 cursor-pointer"
+                    onClick={() => navigate(`/holdings/${holding.id}`, { state: { holding } })}
+                  >
                     <td className="py-3 px-2">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium text-foreground">{holding.symbol}</span>
@@ -129,6 +136,18 @@ export function HoldingsTable({ holdings, isLoading }: HoldingsTableProps) {
                           ({formatPercent(holding.totalGainPercent)})
                         </span>
                       </div>
+                    </td>
+                    <td className="py-3 px-2 text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/holdings/${holding.id}`, { state: { holding } });
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
