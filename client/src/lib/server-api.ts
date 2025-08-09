@@ -71,7 +71,7 @@ interface ServerHoldingDetailsResponse {
   hid: string;
   ik: string;
   symbol: string;
-  cmpNm: string;
+  cmpNm: string | null;
   ccy: string;
   exchange: string;
   typ: "STK" | "MF" | "FIXED" | "OTH";
@@ -80,11 +80,12 @@ interface ServerHoldingDetailsResponse {
   qty: number;
   avgBuyPrice: number;
   costBase: number;
+  costBasePortfolioCcy: number;
   currentVal: number;
   rg: number;
   ug: number;
-  instrumentMaster: ServerInstrumentMasterEntity;
-  instrumentTxnl: ServerInstrumentTransactionalEntity;
+  instrumentMaster: ServerInstrumentMasterEntity | null;
+  instrumentTxnl: ServerInstrumentTransactionalEntity | null;
 }
 
 interface ServerTradeEntity {
@@ -372,7 +373,8 @@ export class ServerApiService {
    * Get holdings for a portfolio
    */
   async getHoldings(portfolioId: string): Promise<ServerHoldingDetailsResponse[]> {
-    return this.makeRequest<ServerHoldingDetailsResponse[]>(`/api/holdings?portfolioId=${portfolioId}`);
+    const response = await this.makeRequest<ServerApiResponse<ServerHoldingDetailsResponse[]>>(`/api/holdings?portfolioId=${portfolioId}`);
+    return response.data;
   }
 
   /**
@@ -382,23 +384,33 @@ export class ServerApiService {
     const serverHoldings = await this.getHoldings(portfolioId);
     
     return serverHoldings.map(holding => ({
+      // Base Holding fields (matching client schema)
       id: holding.hid,
       portfolioId: holding.pid,
       symbol: holding.symbol,
-      companyName: holding.cmpNm,
+      companyName: holding.cmpNm || holding.symbol, // Fallback to symbol if company name is null
       exchange: holding.exchange,
       currency: holding.ccy,
       quantity: holding.qty.toString(),
       averageCost: holding.avgBuyPrice.toString(),
-      currentPrice: (holding.currentVal / holding.qty).toString(), // Calculate current price
-      lastUpdated: new Date(holding.crdDt),
-      // Metrics from server
+      currentPrice: holding.qty > 0 ? (holding.currentVal / holding.qty).toString() : "0",
+      lastUpdated: this.convertUtcToLocal(holding.crdDt),
+      
+      // HoldingWithMetrics fields
       currentValue: holding.currentVal,
       totalGain: holding.ug, // Unrealized gain
       totalGainPercent: holding.costBase > 0 ? (holding.ug / holding.costBase) * 100 : 0,
+      
+      // Additional server-specific fields
+      costBasePortfolioCurrency: holding.costBasePortfolioCcy,
+      realizedGain: holding.rg, // Realized gain
+      fees: holding.fee,
+      feesCurrency: holding.feeCcy,
+      
+      // Market data (optional)
       marketData: holding.instrumentTxnl ? {
         symbol: holding.symbol,
-        price: holding.currentVal / holding.qty,
+        price: holding.qty > 0 ? holding.currentVal / holding.qty : 0,
         change: null,
         changePercent: null,
         volume: null,
